@@ -1,11 +1,11 @@
 #!/bin/bash
 # Post-installation script for Beszel Agent
-# Downloads binary, creates user, sets up configuration
+# Downloads binary and sets up configuration
+# Note: User 'beszel' is created automatically by Synology's privilege system
 
 set -e
 
 PACKAGE="beszel-agent"
-USER="beszel"
 LOG_FILE="/tmp/beszel-agent-install.log"
 
 log() {
@@ -14,16 +14,8 @@ log() {
 
 log "Starting post-installation setup..."
 
-# Create user if it doesn't exist
-if ! synouser --get "$USER" &>/dev/null; then
-    log "Creating user '$USER'..."
-    synouser --add "$USER" "" "Beszel Agent" 0 "" 0
-    # Disable login for security
-    synouser --setpw "$USER" "$(openssl rand -base64 32)"
-    log "User '$USER' created with disabled login"
-else
-    log "User '$USER' already exists"
-fi
+# Note: Synology automatically creates the 'beszel' user based on conf/privilege
+# No manual user creation needed
 
 # Create necessary directories
 log "Creating data directories..."
@@ -93,26 +85,15 @@ if [ -n "$pkgwizard_extra_filesystems" ]; then
     log "Extra filesystems configured: $pkgwizard_extra_filesystems"
 fi
 
-# Set ownership to beszel user
-log "Setting file permissions and ownership..."
-chown -R ${USER}:${USER} "${SYNOPKG_PKGDEST}/var"
-chown ${USER}:${USER} "${SYNOPKG_PKGDEST}/etc/beszel-agent.conf"
-chmod 755 "${SYNOPKG_PKGDEST}/bin/beszel-agent"
-chmod 600 "${SYNOPKG_PKGDEST}/etc/beszel-agent.conf"
+# Set file permissions (ownership handled by Synology)
+log "Setting file permissions..."
+chmod 755 "${SYNOPKG_PKGDEST}/bin/beszel-agent" 2>/dev/null || true
+chmod 600 "${SYNOPKG_PKGDEST}/etc/beszel-agent.conf" 2>/dev/null || true
 
-# If Docker monitoring requested and Docker is installed
+# Note: Docker group membership must be added manually via SSH if needed:
+# sudo synogroup --member docker beszel
 if [ "$pkgwizard_monitor_docker" = "true" ]; then
-    log "Docker monitoring requested..."
-    if [ -S /var/run/docker.sock ]; then
-        if synogroup --get docker > /dev/null 2>&1; then
-            synogroup --member docker "$USER" 2>&1 | tee -a "$LOG_FILE" || true
-            log "User '$USER' added to docker group"
-        else
-            log "WARNING: Docker group not found"
-        fi
-    else
-        log "WARNING: Docker socket not found"
-    fi
+    log "Docker monitoring requested - see documentation for setup instructions"
 fi
 
 log "Post-installation setup completed successfully"
