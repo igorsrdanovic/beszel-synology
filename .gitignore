@@ -1,6 +1,12 @@
 # Build directories
 build/
 output/
+ultra_minimal_build/
+ultra_minimal_output/
+test_build/
+test_output/
+*_build/
+*_output/
 
 # Package files
 *.spk
