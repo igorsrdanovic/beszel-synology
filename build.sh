@@ -59,7 +59,7 @@ fi
 # Create package.tgz
 # Navigate INTO package directory to avoid extra directory layer
 log_info "Creating package.tgz..."
-(cd "$PACKAGE_DIR" && tar czf ../package.tgz .)
+(cd "$PACKAGE_DIR" && tar --owner=0 --group=0 -czf ../package.tgz .)
 
 # Copy package metadata files to build directory
 log_info "Copying package metadata..."
@@ -92,7 +92,8 @@ cp "$SOURCE_DIR/WIZARD_UIFILES/"* "$BUILD_DIR/WIZARD_UIFILES/"
 SPK_FILE="$OUTPUT_DIR/${PACKAGE_NAME}-${PACKAGE_VERSION}.spk"
 log_info "Creating SPK package: $(basename $SPK_FILE)..."
 
-(cd "$BUILD_DIR" && tar cf "../$SPK_FILE" \
+# Use GNU tar format and normalize ownership for Synology compatibility
+(cd "$BUILD_DIR" && tar --format=gnu --owner=0 --group=0 -cf "../$SPK_FILE" \
     INFO \
     PACKAGE_ICON.PNG \
     PACKAGE_ICON_256.PNG \
