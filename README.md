@@ -15,6 +15,18 @@ This package installs the Beszel agent on your Synology NAS, allowing your Besze
 - Network statistics
 - Docker container metrics (optional)
 
+## ⚠️ Important: DSM 7.2+ with Enhanced Security
+
+**If you have DSM 7.2+ with enhanced security enabled**, you need a **Synology Developer Token** to install unsigned packages.
+
+**Symptoms:**
+- "Invalid file format" error
+- "Unable to install because it runs with root privileges" error
+
+**Solution:** See [DEVELOPER_TOKEN_REQUIRED.md](DEVELOPER_TOKEN_REQUIRED.md) for instructions on obtaining and installing the developer token.
+
+**Alternative:** Use [Docker installation](#alternative-docker-installation) instead.
+
 ## Features
 
 - ✅ Easy installation through DSM Package Center
@@ -257,7 +269,44 @@ If installation fails due to port conflict:
 1. Choose a different port during installation, or
 2. Stop the service using the conflicting port
 
+## Alternative: Docker Installation
+
+If you cannot install the SPK package (e.g., enhanced security without developer token), you can run Beszel Agent via Docker:
+
+```bash
+# SSH into your Synology NAS, then run:
+docker run -d \
+  --name beszel-agent \
+  --restart unless-stopped \
+  -p 45876:45876 \
+  -v /:/host:ro \
+  -e KEY="ssh-ed25519 AAAA...your-public-key-here" \
+  -e PORT=45876 \
+  henrygd/beszel-agent
+```
+
+**Advantages:**
+- No developer token required
+- Works on all DSM versions with Docker support
+- Easy updates (`docker pull henrygd/beszel-agent`)
+
+**Optional: Docker Monitoring**
+
+To monitor Docker containers, add:
+```bash
+-v /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+**Optional: Custom Filesystems**
+
+To monitor specific filesystems:
+```bash
+-e EXTRA_FILESYSTEMS="/volume1,/volume2"
+```
+
 ## Uninstallation
+
+### SPK Package
 
 1. Open **Package Center**
 2. Select **Beszel Agent**
@@ -267,6 +316,13 @@ The package will:
 - Stop the agent service
 - Remove all package files
 - Keep the `beszel` user (can be manually removed if needed)
+
+### Docker
+
+```bash
+docker stop beszel-agent
+docker rm beszel-agent
+```
 
 ## Security Considerations
 
