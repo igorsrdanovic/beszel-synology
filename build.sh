@@ -56,10 +56,32 @@ if [ -d "$SOURCE_DIR/ui" ]; then
     cp -r "$SOURCE_DIR/ui/"* "$PACKAGE_DIR/ui/" || log_warn "No UI files found"
 fi
 
+# Detect tar version for compatibility
+TAR_OWNER_OPT=""
+if tar --version 2>&1 | grep -q "GNU tar"; then
+    # GNU tar (Linux)
+    TAR_OWNER_OPT="--owner=0 --group=0"
+    log_info "Detected GNU tar"
+elif tar --version 2>&1 | grep -q "bsdtar"; then
+    # BSD tar (macOS)
+    TAR_OWNER_OPT="--uid 0 --gid 0"
+    log_info "Detected BSD tar (macOS)"
+else
+    # Try to detect by checking if --owner works
+    if tar --owner=0 --group=0 -cf /tmp/tar_test.tar -T /dev/null 2>/dev/null; then
+        TAR_OWNER_OPT="--owner=0 --group=0"
+        rm -f /tmp/tar_test.tar
+        log_info "Using GNU tar options"
+    else
+        TAR_OWNER_OPT="--uid 0 --gid 0"
+        log_info "Using BSD tar options"
+    fi
+fi
+
 # Create package.tgz
 # Navigate INTO package directory to avoid extra directory layer
 log_info "Creating package.tgz..."
-(cd "$PACKAGE_DIR" && tar --owner=0 --group=0 -czf ../package.tgz .)
+(cd "$PACKAGE_DIR" && tar $TAR_OWNER_OPT -czf ../package.tgz .)
 
 # Copy package metadata files to build directory
 log_info "Copying package metadata..."
@@ -92,8 +114,8 @@ cp "$SOURCE_DIR/WIZARD_UIFILES/"* "$BUILD_DIR/WIZARD_UIFILES/"
 SPK_FILE="$OUTPUT_DIR/${PACKAGE_NAME}-${PACKAGE_VERSION}.spk"
 log_info "Creating SPK package: $(basename $SPK_FILE)..."
 
-# Use GNU tar format and normalize ownership for Synology compatibility
-(cd "$BUILD_DIR" && tar --format=gnu --owner=0 --group=0 -cf "../$SPK_FILE" \
+# Create SPK with normalized ownership for Synology compatibility
+(cd "$BUILD_DIR" && tar $TAR_OWNER_OPT -cf "../$SPK_FILE" \
     INFO \
     PACKAGE_ICON.PNG \
     PACKAGE_ICON_256.PNG \
