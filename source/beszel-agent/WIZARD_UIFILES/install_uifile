@@ -48,13 +48,13 @@
       "description": "Configure advanced monitoring options",
       "items": [
         {
-          "type": "multiselect",
-          "desc": "Select monitoring features to enable",
+          "type": "singleselect",
+          "desc": "Docker Container Monitoring",
           "subitems": [
             {
               "key": "pkgwizard_monitor_docker",
-              "desc": "Monitor Docker containers (requires Docker package to be installed)",
-              "defaultValue": false
+              "desc": "Enable Docker monitoring (requires Docker package)",
+              "defaultValue": "false"
             }
           ]
         },
