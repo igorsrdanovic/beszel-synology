@@ -2,8 +2,5 @@
   "defaults": {
     "run-as": "package"
   },
-  "run-as": {
-    "user": "beszel",
-    "group": "beszel"
-  }
+  "username": "beszel"
 }
