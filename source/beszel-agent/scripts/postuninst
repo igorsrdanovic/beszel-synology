@@ -1,0 +1,29 @@
+#!/bin/bash
+# Post-uninstall script for Beszel Agent
+# Cleanup after package removal
+
+set -e
+
+LOG_FILE="/tmp/beszel-agent-uninstall.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "Starting post-uninstall cleanup..."
+
+# Remove beszel user (optional - commented out to preserve user)
+# Uncomment if you want to remove the user on uninstall
+# if synouser --get beszel > /dev/null 2>&1; then
+#     log "Removing beszel user..."
+#     synouser --del beszel
+#     log "User removed"
+# fi
+
+# Clean up any remaining files
+log "Cleaning up temporary files..."
+rm -f /tmp/beszel-agent-*.log
+
+log "Post-uninstall cleanup completed"
+log "Beszel agent has been uninstalled successfully"
+exit 0

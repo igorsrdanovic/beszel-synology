@@ -1,0 +1,52 @@
+#!/bin/bash
+# Pre-installation script for Beszel Agent
+# Validates configuration before installation
+
+set -e
+
+LOG_FILE="/tmp/beszel-agent-install.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "Starting pre-installation checks..."
+
+# Check if port is available (if specified)
+if [ -n "$pkgwizard_port" ]; then
+    PORT="$pkgwizard_port"
+else
+    PORT="45876"
+fi
+
+log "Checking if port $PORT is available..."
+if netstat -tuln 2>/dev/null | grep -q ":$PORT "; then
+    log "ERROR: Port $PORT is already in use"
+    echo "Port $PORT is already in use. Please choose a different port or stop the service using this port."
+    exit 1
+fi
+
+# Validate SSH key format (if provided via wizard)
+if [ -n "$pkgwizard_ssh_key" ]; then
+    log "Validating SSH key format..."
+    if ! echo "$pkgwizard_ssh_key" | grep -q "^ssh-ed25519 "; then
+        log "ERROR: Invalid SSH key format"
+        echo "Invalid SSH key format. The key must be an ssh-ed25519 key starting with 'ssh-ed25519'."
+        exit 1
+    fi
+    log "SSH key format validated successfully"
+fi
+
+# Check available disk space (need at least 50MB)
+log "Checking available disk space..."
+AVAILABLE_SPACE=$(df /var/packages | tail -1 | awk '{print $4}')
+REQUIRED_SPACE=51200  # 50MB in KB
+
+if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
+    log "ERROR: Insufficient disk space"
+    echo "Insufficient disk space. At least 50MB required."
+    exit 1
+fi
+
+log "Pre-installation checks completed successfully"
+exit 0

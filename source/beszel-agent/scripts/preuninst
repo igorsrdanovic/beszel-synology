@@ -1,0 +1,24 @@
+#!/bin/bash
+# Pre-uninstall script for Beszel Agent
+# Stops the service before removal
+
+set -e
+
+LOG_FILE="/tmp/beszel-agent-uninstall.log"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "Starting pre-uninstall cleanup..."
+
+# Stop the service if running
+SCRIPT_DIR="/var/packages/beszel-agent/scripts"
+if [ -f "$SCRIPT_DIR/start-stop-status" ]; then
+    log "Stopping Beszel agent service..."
+    "$SCRIPT_DIR/start-stop-status" stop 2>&1 | tee -a "$LOG_FILE" || true
+    log "Service stopped"
+fi
+
+log "Pre-uninstall cleanup completed"
+exit 0

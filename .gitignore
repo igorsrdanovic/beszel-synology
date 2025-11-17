@@ -1,0 +1,27 @@
+# Build directories
+build/
+output/
+
+# Package files
+*.spk
+*.tgz
+
+# Temporary files
+*.log
+*.tmp
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Test files
+test/
+tmp/

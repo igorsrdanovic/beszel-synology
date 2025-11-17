@@ -1,0 +1,16 @@
+{
+  "config": {
+    "title": "Beszel Agent",
+    "description": "Beszel monitoring agent is running. Configure your Beszel hub to connect to this agent.",
+    "items": [
+      {
+        "type": "text",
+        "text": "The Beszel agent is listening on the configured port. To connect from your Beszel hub, use this device's IP address and the port you configured during installation."
+      },
+      {
+        "type": "text",
+        "text": "For configuration changes, you can reinstall the package or manually edit /var/packages/beszel-agent/target/etc/beszel-agent.conf"
+      }
+    ]
+  }
+}

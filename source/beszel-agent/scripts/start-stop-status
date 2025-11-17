@@ -1,0 +1,160 @@
+#!/bin/bash
+# Service control script for Beszel Agent
+# Handles start, stop, and status operations
+
+AGENT_BIN="/var/packages/beszel-agent/target/bin/beszel-agent"
+CONF_FILE="/var/packages/beszel-agent/target/etc/beszel-agent.conf"
+PID_FILE="/var/packages/beszel-agent/target/var/beszel-agent.pid"
+LOG_DIR="/var/packages/beszel-agent/target/var"
+LOG_FILE="$LOG_DIR/beszel-agent.log"
+
+# Ensure log directory exists
+mkdir -p "$LOG_DIR"
+
+# Load configuration
+if [ -f "$CONF_FILE" ]; then
+    . "$CONF_FILE"
+fi
+
+start_daemon() {
+    # Check if already running
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "Beszel agent is already running (PID: $PID)"
+            return 0
+        else
+            # Stale PID file
+            rm -f "$PID_FILE"
+        fi
+    fi
+
+    # Verify binary exists
+    if [ ! -x "$AGENT_BIN" ]; then
+        echo "Error: Beszel agent binary not found or not executable at $AGENT_BIN"
+        return 1
+    fi
+
+    # Verify configuration exists
+    if [ ! -f "$CONF_FILE" ]; then
+        echo "Error: Configuration file not found at $CONF_FILE"
+        return 1
+    fi
+
+    # Start the agent as beszel user
+    # Use nohup to detach from terminal and redirect output
+    su - beszel -s /bin/sh -c "
+        . '$CONF_FILE'
+        cd /var/packages/beszel-agent/target/var
+        nohup '$AGENT_BIN' >> '$LOG_FILE' 2>&1 &
+        echo \$! > '$PID_FILE'
+    "
+
+    # Wait a moment and verify it started
+    sleep 2
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "Beszel agent started successfully (PID: $PID)"
+            return 0
+        else
+            echo "Error: Beszel agent failed to start"
+            rm -f "$PID_FILE"
+            return 1
+        fi
+    else
+        echo "Error: PID file not created"
+        return 1
+    fi
+}
+
+stop_daemon() {
+    if [ ! -f "$PID_FILE" ]; then
+        echo "Beszel agent is not running"
+        return 0
+    fi
+
+    PID=$(cat "$PID_FILE")
+
+    if ! kill -0 "$PID" 2>/dev/null; then
+        echo "Beszel agent is not running (stale PID file)"
+        rm -f "$PID_FILE"
+        return 0
+    fi
+
+    # Try graceful shutdown first
+    echo "Stopping Beszel agent (PID: $PID)..."
+    kill "$PID" 2>/dev/null
+
+    # Wait up to 10 seconds for graceful shutdown
+    for i in $(seq 1 10); do
+        if ! kill -0 "$PID" 2>/dev/null; then
+            echo "Beszel agent stopped successfully"
+            rm -f "$PID_FILE"
+            return 0
+        fi
+        sleep 1
+    done
+
+    # Force kill if still running
+    echo "Forcing Beszel agent to stop..."
+    kill -9 "$PID" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    echo "Beszel agent stopped (forced)"
+    return 0
+}
+
+daemon_status() {
+    if [ ! -f "$PID_FILE" ]; then
+        return 1
+    fi
+
+    PID=$(cat "$PID_FILE")
+
+    if kill -0 "$PID" 2>/dev/null; then
+        return 0
+    else
+        # Stale PID file
+        rm -f "$PID_FILE"
+        return 1
+    fi
+}
+
+case "$1" in
+    start)
+        start_daemon
+        exit $?
+        ;;
+    stop)
+        stop_daemon
+        exit $?
+        ;;
+    status)
+        if daemon_status; then
+            PID=$(cat "$PID_FILE")
+            echo "Beszel agent is running (PID: $PID)"
+            exit 0
+        else
+            echo "Beszel agent is not running"
+            exit 1
+        fi
+        ;;
+    restart)
+        stop_daemon
+        sleep 2
+        start_daemon
+        exit $?
+        ;;
+    log)
+        if [ -f "$LOG_FILE" ]; then
+            tail -n 50 "$LOG_FILE"
+        else
+            echo "No log file found"
+        fi
+        exit 0
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status|restart|log}"
+        exit 1
+        ;;
+esac

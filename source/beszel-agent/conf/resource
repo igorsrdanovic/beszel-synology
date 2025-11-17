@@ -1,0 +1,9 @@
+{
+  "description": "Beszel monitoring agent resource configuration",
+  "port-config": {
+    "protocol-file": "protocol"
+  },
+  "userservice-config": {
+    "service-name": "beszel-agent"
+  }
+}

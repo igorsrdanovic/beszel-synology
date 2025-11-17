@@ -1,0 +1,7 @@
+{
+  "beszel-agent": {
+    "title": "Beszel Agent",
+    "port": 45876,
+    "type": "tcp"
+  }
+}
