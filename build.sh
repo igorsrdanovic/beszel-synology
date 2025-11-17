@@ -57,8 +57,9 @@ if [ -d "$SOURCE_DIR/ui" ]; then
 fi
 
 # Create package.tgz
+# Navigate INTO package directory to avoid extra directory layer
 log_info "Creating package.tgz..."
-(cd "$BUILD_DIR" && tar czf package.tgz package/)
+(cd "$PACKAGE_DIR" && tar czf ../package.tgz .)
 
 # Copy package metadata files to build directory
 log_info "Copying package metadata..."
