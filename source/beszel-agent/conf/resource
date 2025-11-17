@@ -4,6 +4,7 @@
     "protocol-file": "protocol"
   },
   "userservice-config": {
-    "service-name": "beszel-agent"
+    "service-name": "beszel-agent",
+    "service-user": "beszel"
   }
 }
