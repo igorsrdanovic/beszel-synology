@@ -1,22 +1,25 @@
 #!/bin/bash
 # Service control script for Beszel Agent
 # Handles start, stop, and status operations
+# Synology's privilege system handles user context - no su/sudo needed
 
-AGENT_BIN="/var/packages/beszel-agent/target/bin/beszel-agent"
-CONF_FILE="/var/packages/beszel-agent/target/etc/beszel-agent.conf"
-PID_FILE="/var/packages/beszel-agent/target/var/beszel-agent.pid"
-LOG_DIR="/var/packages/beszel-agent/target/var"
-LOG_FILE="$LOG_DIR/beszel-agent.log"
-
-# Ensure log directory exists
-mkdir -p "$LOG_DIR"
-
-# Load configuration
-if [ -f "$CONF_FILE" ]; then
-    . "$CONF_FILE"
-fi
+AGENT_BIN="${SYNOPKG_PKGDEST}/bin/beszel-agent"
+CONF_FILE="${SYNOPKG_PKGDEST}/etc/beszel-agent.conf"
+PID_FILE="${SYNOPKG_PKGDEST}/var/beszel-agent.pid"
+LOG_FILE="${SYNOPKG_PKGDEST}/var/beszel-agent.log"
 
 start_daemon() {
+    # Source configuration to export environment variables
+    if [ -f "$CONF_FILE" ]; then
+        . "$CONF_FILE"
+    fi
+
+    # Verify binary exists
+    if [ ! -x "$AGENT_BIN" ]; then
+        echo "Error: Beszel agent binary not found or not executable at $AGENT_BIN"
+        return 1
+    fi
+
     # Check if already running
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
@@ -29,28 +32,15 @@ start_daemon() {
         fi
     fi
 
-    # Verify binary exists
-    if [ ! -x "$AGENT_BIN" ]; then
-        echo "Error: Beszel agent binary not found or not executable at $AGENT_BIN"
-        return 1
-    fi
+    # Export environment variables for the process
+    export PORT KEY LISTEN FILESYSTEM EXTRA_FILESYSTEMS
 
-    # Verify configuration exists
-    if [ ! -f "$CONF_FILE" ]; then
-        echo "Error: Configuration file not found at $CONF_FILE"
-        return 1
-    fi
+    # Start agent - Synology handles user context via privilege config
+    cd "${SYNOPKG_PKGDEST}"
+    nohup "$AGENT_BIN" >> "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
 
-    # Start the agent as beszel user
-    # Use nohup to detach from terminal and redirect output
-    su - beszel -s /bin/sh -c "
-        . '$CONF_FILE'
-        cd /var/packages/beszel-agent/target/var
-        nohup '$AGENT_BIN' >> '$LOG_FILE' 2>&1 &
-        echo \$! > '$PID_FILE'
-    "
-
-    # Wait a moment and verify it started
+    # Wait and verify it started
     sleep 2
     if [ -f "$PID_FILE" ]; then
         PID=$(cat "$PID_FILE")
@@ -62,10 +52,9 @@ start_daemon() {
             rm -f "$PID_FILE"
             return 1
         fi
-    else
-        echo "Error: PID file not created"
-        return 1
     fi
+
+    return 1
 }
 
 stop_daemon() {

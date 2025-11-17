@@ -4,7 +4,8 @@
 
 set -e
 
-SYNOPKG_PKGDEST="/var/packages/beszel-agent/target"
+PACKAGE="beszel-agent"
+USER="beszel"
 LOG_FILE="/tmp/beszel-agent-install.log"
 
 log() {
@@ -13,107 +14,99 @@ log() {
 
 log "Starting post-installation setup..."
 
-# Detect architecture and download appropriate binary
-log "Detecting system architecture..."
-ARCH=$(uname -m)
-case "$ARCH" in
-    x86_64)
+# Create user if it doesn't exist
+if ! synouser --get "$USER" &>/dev/null; then
+    log "Creating user '$USER'..."
+    synouser --add "$USER" "" "Beszel Agent" 0 "" 0
+    # Disable login for security
+    synouser --setpw "$USER" "$(openssl rand -base64 32)"
+    log "User '$USER' created with disabled login"
+else
+    log "User '$USER' already exists"
+fi
+
+# Create necessary directories
+log "Creating data directories..."
+mkdir -p "${SYNOPKG_PKGDEST}/var/lib"
+mkdir -p "${SYNOPKG_PKGDEST}/var"
+mkdir -p "${SYNOPKG_PKGDEST}/etc"
+
+# Download appropriate architecture binary if not present
+if [ ! -f "${SYNOPKG_PKGDEST}/bin/beszel-agent" ]; then
+    log "Detecting system architecture..."
+    ARCH=$(uname -m)
+    case "$ARCH" in
+      x86_64)
         DOWNLOAD_ARCH="amd64"
         ;;
-    aarch64)
+      aarch64)
         DOWNLOAD_ARCH="arm64"
         ;;
-    armv7l|armv7)
+      armv7l|armv7)
         DOWNLOAD_ARCH="arm"
         ;;
-    *)
+      *)
         log "ERROR: Unsupported architecture: $ARCH"
         echo "Unsupported architecture: $ARCH"
         exit 1
         ;;
-esac
+    esac
 
-log "Architecture detected: $ARCH (downloading $DOWNLOAD_ARCH binary)"
+    log "Architecture detected: $ARCH (downloading $DOWNLOAD_ARCH binary)"
 
-# Download and extract Beszel agent binary
-log "Downloading Beszel agent binary..."
-DOWNLOAD_URL="https://github.com/henrygd/beszel/releases/latest/download/beszel-agent_Linux_${DOWNLOAD_ARCH}.tar.gz"
+    mkdir -p "${SYNOPKG_PKGDEST}/bin"
+    DOWNLOAD_URL="https://github.com/henrygd/beszel/releases/latest/download/beszel-agent_Linux_${DOWNLOAD_ARCH}.tar.gz"
 
-if ! curl -sL "$DOWNLOAD_URL" | tar -xz -C "$SYNOPKG_PKGDEST/bin/" 2>&1 | tee -a "$LOG_FILE"; then
-    log "ERROR: Failed to download Beszel agent binary"
-    echo "Failed to download Beszel agent binary from $DOWNLOAD_URL"
-    exit 1
+    log "Downloading Beszel agent binary from $DOWNLOAD_URL..."
+    if ! curl -sL "$DOWNLOAD_URL" | tar -xz -C "${SYNOPKG_PKGDEST}/bin/" 2>&1 | tee -a "$LOG_FILE"; then
+        log "ERROR: Failed to download Beszel agent binary"
+        echo "Failed to download Beszel agent binary from $DOWNLOAD_URL"
+        exit 1
+    fi
+
+    log "Binary downloaded successfully"
+else
+    log "Binary already exists, skipping download"
 fi
 
-log "Binary downloaded successfully"
-
-# Verify binary exists and is executable
-if [ ! -f "$SYNOPKG_PKGDEST/bin/beszel-agent" ]; then
+# Verify binary exists
+if [ ! -f "${SYNOPKG_PKGDEST}/bin/beszel-agent" ]; then
     log "ERROR: Binary not found after extraction"
     echo "Binary not found after extraction"
     exit 1
 fi
 
-# Make binary executable
-chmod 755 "$SYNOPKG_PKGDEST/bin/beszel-agent"
-log "Binary permissions set"
-
-# Create beszel user if it doesn't exist
-log "Creating beszel system user..."
-if ! synouser --get beszel > /dev/null 2>&1; then
-    synouser --add beszel "" "Beszel Agent Service User" 0 "" 0
-    log "User 'beszel' created"
-else
-    log "User 'beszel' already exists"
-fi
-
-# Create necessary directories
-log "Creating data directories..."
-mkdir -p "$SYNOPKG_PKGDEST/var/lib"
-mkdir -p "$SYNOPKG_PKGDEST/etc"
-
-# Set up configuration file from wizard inputs
+# Set up configuration from wizard inputs
 log "Creating configuration file..."
-PORT="${pkgwizard_port:-45876}"
-SSH_KEY="${pkgwizard_ssh_key}"
-EXTRA_FS="${pkgwizard_extra_filesystems}"
-
-cat > "$SYNOPKG_PKGDEST/etc/beszel-agent.conf" << EOF
+cat > "${SYNOPKG_PKGDEST}/etc/beszel-agent.conf" << EOF
 # Beszel Agent Configuration
 # Generated on $(date)
 
-export PORT="$PORT"
-export LISTEN="$PORT"
+export PORT="${pkgwizard_port:-45876}"
+export KEY="$pkgwizard_ssh_key"
+export LISTEN="${pkgwizard_port:-45876}"
 EOF
 
-# Add SSH key if provided
-if [ -n "$SSH_KEY" ]; then
-    echo "export KEY=\"$SSH_KEY\"" >> "$SYNOPKG_PKGDEST/etc/beszel-agent.conf"
-    log "SSH key configured"
-fi
-
 # Add extra filesystems if specified
-if [ -n "$EXTRA_FS" ]; then
-    echo "export EXTRA_FILESYSTEMS=\"$EXTRA_FS\"" >> "$SYNOPKG_PKGDEST/etc/beszel-agent.conf"
-    log "Extra filesystems configured: $EXTRA_FS"
+if [ -n "$pkgwizard_extra_filesystems" ]; then
+    echo "export EXTRA_FILESYSTEMS=\"$pkgwizard_extra_filesystems\"" >> "${SYNOPKG_PKGDEST}/etc/beszel-agent.conf"
+    log "Extra filesystems configured: $pkgwizard_extra_filesystems"
 fi
 
-# Set secure permissions on configuration file
-chmod 600 "$SYNOPKG_PKGDEST/etc/beszel-agent.conf"
-chown root:root "$SYNOPKG_PKGDEST/etc/beszel-agent.conf"
-
-# Set ownership of data directory
-chown -R beszel:beszel "$SYNOPKG_PKGDEST/var/"
-log "Data directory ownership set"
+# Set ownership to beszel user
+log "Setting file permissions and ownership..."
+chown -R ${USER}:${USER} "${SYNOPKG_PKGDEST}/var"
+chown ${USER}:${USER} "${SYNOPKG_PKGDEST}/etc/beszel-agent.conf"
+chmod 755 "${SYNOPKG_PKGDEST}/bin/beszel-agent"
+chmod 600 "${SYNOPKG_PKGDEST}/etc/beszel-agent.conf"
 
 # If Docker monitoring requested and Docker is installed
 if [ "$pkgwizard_monitor_docker" = "true" ]; then
     log "Docker monitoring requested..."
     if [ -S /var/run/docker.sock ]; then
-        # Add beszel user to docker group
         if synogroup --get docker > /dev/null 2>&1; then
-            synogroup --member docker beszel 2>&1 | tee -a "$LOG_FILE" || true
-            log "User 'beszel' added to docker group"
+            synogroup --member docker "$USER" 2>&1 | tee -a "$LOG_FILE" || true
+            log "User '$USER' added to docker group"
         else
             log "WARNING: Docker group not found"
         fi
