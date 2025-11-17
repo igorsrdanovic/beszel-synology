@@ -77,33 +77,58 @@ The hub will connect to the agent using SSH key authentication.
 
 ## Building from Source
 
-### Prerequisites
+This repository provides **two build methods**:
+
+1. **Manual Build Script** (quick and simple)
+2. **spksrc Framework Build** (official SynoCommunity framework)
+
+### Method 1: Manual Build Script (Recommended for Quick Builds)
+
+#### Prerequisites
 
 - Linux or macOS environment
 - `tar` command
 - Basic shell environment
 
-### Build Steps
+#### Build Steps
 
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/beszel-synology.git
 cd beszel-synology
 
-# Create placeholder icons (optional - replace with real icons)
-./create_placeholder_icons.sh
-
 # Build the package
 ./build.sh
 ```
 
-The SPK file will be created in the `output/` directory.
+The SPK file will be created in the `output/` directory as `beszel-agent-0.10.2.spk`.
+
+### Method 2: spksrc Framework Build (Recommended for Contributing)
+
+For building with the official SynoCommunity spksrc framework, see the detailed guide in [`spksrc-package/README.md`](spksrc-package/README.md).
+
+#### Quick Start
+
+```bash
+# Clone spksrc
+git clone https://github.com/SynoCommunity/spksrc.git
+cd spksrc
+make setup
+
+# Copy package files
+cp -r /path/to/beszel-synology/spksrc-package/* spk/beszel-agent/
+
+# Build
+make -C spk/beszel-agent
+```
+
+Built package will be in `spksrc/packages/beszel-agent-0.10.2-1-noarch.spk`.
 
 ### Project Structure
 
 ```
 beszel-synology/
-├── source/beszel-agent/       # Package source files
+├── source/beszel-agent/       # Manual build package files
 │   ├── INFO                   # Package metadata
 │   ├── scripts/               # Installation & control scripts
 │   │   ├── preinst           # Pre-installation checks
@@ -119,11 +144,20 @@ beszel-synology/
 │   │   └── install_uifile    # Wizard configuration (JSON)
 │   └── ui/                    # Package UI files
 │       └── config            # Configuration page
-├── icons/                     # Package icons
+├── spksrc-package/            # spksrc framework build files
+│   ├── Makefile              # spksrc package definition
+│   ├── src/
+│   │   ├── service-setup.sh  # Service setup script
+│   │   ├── beszel-agent.sh   # Service control script
+│   │   ├── wizard/           # Installation wizard
+│   │   ├── conf/             # Configuration files
+│   │   └── beszel-agent.png  # Package icon
+│   └── README.md             # spksrc build documentation
+├── icons/                     # Package icons (shared)
 │   ├── PACKAGE_ICON.PNG      # 72x72 icon
 │   └── PACKAGE_ICON_256.PNG  # 256x256 icon
-├── build.sh                   # Build script
-├── create_placeholder_icons.sh # Icon generation script
+├── build.sh                   # Manual build script
+├── create_simple_icons.py     # Icon generation script
 └── README.md                  # This file
 ```
 
